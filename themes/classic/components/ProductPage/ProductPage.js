@@ -1,0 +1,495 @@
+import { Container, Button, FullPageSpinner } from "@/base/index";
+import { Row, Col, Carousel, Comment, List, Modal, Space, Tag, Alert, Rate } from "antd";
+import Image from "next/image";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPlus, faMinus, faStar, faEdit } from "@fortawesome/free-solid-svg-icons";
+import { useState, useRef, useContext, useEffect, useCallback } from "react";
+import { fetchProduct } from '../../../api';
+import { useAsyncFetch } from '../../../utils/hooks';
+import { useRouter } from 'next/router';
+import cartStore from '../Cart/store.js';
+import userStore from '../../../../store/users';
+import ReviewEditor from "./Reviews/ReviewEditor";
+import { createGAEvent } from "themes/utils";
+import { 
+  CTACartButton, 
+  CTACartWrapper, 
+  DropdownContent, 
+  DropDownTitle, 
+  DropDownContainer, 
+  ImageWrapper, 
+  Price, 
+  QauntityWrapper, 
+  QuantityInput, 
+  QuatityButtons, 
+  Thumb, 
+  ThumbsWrapper,
+  ReviewContainer,
+  ProductSlideCol,
+  ProductListSection,
+  ProductInfoSection,
+  VariationWrapper
+ } from "./styles";
+import { createReview, fetchReviews } from "./api";
+
+const ReviewList = ({ replies }) => (
+  <List
+    dataSource={replies}
+    header={`${replies.length} ${replies.length > 1 ? 'replies' : 'reply'}`}
+    itemLayout="horizontal"
+    renderItem={props => <Comment {...props} />}
+  />
+);
+
+const ProductPage = () => {
+  const cart = useContext(cartStore);
+  const user = useContext(userStore);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [reviewValues, setReviewValues] = useState({});
+  const [reviews, setReviews] = useState([]);
+  const [quantity, setQuantity] = useState(1);
+  const [variationError, setVariationError] = useState(false);
+  const [showReviewEditor, setShowReviewEditor] = useState();
+  const [openContent, setOpenContent] = useState([]);
+  const [selectedVariations, setSelectedVariations] = useState([]);
+  const [variationGroups, setVariationGroups] = useState([]);
+  const slider = useRef();
+  const router = useRouter();
+  const { productId } = router.query;
+  const { CheckableTag } = Tag;
+
+  const { success, error, response, isLoading, refetch: refetchProduct } = useAsyncFetch(false, fetchProduct);
+  const { name, description, returnPolicy='', price, stock, maxOrderQuantity, images=[], variations, productVariationStocks=[] } = response?.data?.product || {};
+
+  const makeVariationGroupByIndex = useCallback((variationGroup, index, parents=[]) => {
+    return variationGroup.reduce((groups, pvs) => {
+      if (pvs.variationGroup[index]) {
+        const name = pvs.variationGroup[index].name;
+        const nameIndex = groups.findIndex(g => g.name === name);
+  
+        if (nameIndex < 0) {
+          groups.push({name, parents, options: [pvs.variationGroup[index]]});
+          return groups;
+        }
+  
+        groups[nameIndex].options.push(pvs.variationGroup[index]);
+      }
+
+      return groups;
+    }, [])
+  }, []);
+
+  useEffect(() => {
+    if (productVariationStocks.length) {
+      setVariationGroups([makeVariationGroupByIndex(productVariationStocks, 0)]);
+    }
+  }, [makeVariationGroupByIndex, productVariationStocks]);
+
+  const { success: reviewAdded, 
+    error: addReviewError, 
+    response: addReviewResponse, 
+    isLoading: addingReview, 
+    refetch: recreateReview } = useAsyncFetch(false, createReview);
+
+  const { success: fetchReviewsSuccess, 
+    // error: addReviewError, 
+    response: fetchReviewsResponse, 
+    isLoading: fetchingReview, 
+    refetch: refetcheReviews } = useAsyncFetch(false, fetchReviews);
+
+  useEffect(() => {
+    if (reviewAdded) {
+      refetcheReviews({productId});
+      setReviewValues({});
+      setShowReviewEditor(null);
+    }
+  }, [productId, refetcheReviews, reviewAdded]);
+
+  useEffect(() => {
+    if (fetchReviewsSuccess) {
+      const onEdit = (review) => {
+        setShowReviewEditor(review.id);
+        setReviewValues({ratings: review.ratings, content: review.content});
+      }
+
+      setReviews(fetchReviewsResponse.data.reviews.map(review => ({
+        ...review,
+        author: <div>
+          <Space>
+            <p>{review.author} <FontAwesomeIcon icon={faStar} color="#F8E71C"/>{review.ratings}</p> 
+            {user.id === review.authorId ? <p><FontAwesomeIcon icon={faEdit} onClick={() => onEdit(review)}/></p> : ''}
+          </Space>
+        </div>
+      })));
+    }
+  }, [fetchReviewsSuccess, fetchReviewsResponse, user.id]);
+
+  useEffect(() => {
+    if (addReviewError && addReviewError.response.status === 400) {
+      const close = () => {
+        modal.destroy();
+      }
+  
+      const modal = Modal.error({
+        title: '',
+        wrapClassName: 'modalInstance',
+        content: (
+          <div>
+            <Space direction="vertical">
+              <p>{addReviewError.response.data.message}</p>
+              <Button type="primary" onClick={close}>Close</Button>
+            </Space>
+          </div>
+        ),
+        maskClosable: true,
+        okButtonProps: {style: {display: 'none'}}
+      });
+    }
+  }, [addReviewError]);
+
+  useEffect(() => {
+    if(router.isReady) {
+      refetchProduct({ id: productId });
+      refetcheReviews({ productId });
+    }
+  }, [productId, refetchProduct, refetcheReviews, router.isReady]);
+
+  const isContentOpen = (id) => {
+    return openContent.some((content) => content == id);
+  }
+
+  const toggleDropdownById = (id) => {
+    setOpenContent((ids) => {
+      if(isContentOpen(id)){
+        return ids.filter((item) => item != id);
+      }
+
+      return [...ids, id];
+    });
+  }
+
+  const onThumbClick = (i) => {
+    slider.current.goTo(i);
+    setCurrentSlide(i);
+  }
+
+  const makeCollapsibleContentSections = () => {
+    const items = [{
+      id: 'description',
+      title: 'Description',
+      content: description
+    }];
+
+    if (returnPolicy.replace('<p><br /></p>', '')) {
+      items.push({
+        id: 'returnPolicy',
+        title: 'Shipping & Returns',
+        content: returnPolicy
+      });
+    }
+
+    items.push({
+      id: 'reviews',
+      title: 'Reviews',
+      content: [],
+    });
+
+    return items;
+  }
+
+  const incrementQuantity = () => {
+    const allowedQuantity = maxOrderQuantity || stock;
+    setQuantity(q => q === allowedQuantity ? q : q + 1);
+  }
+
+  const decrementQuantity = () => {
+    setQuantity(q => q == 1 ? q : q - 1);
+  }
+
+  const addToCart = () => {
+    createGAEvent({action: 'AddToCart', category: 'add_to_cart', label: name, value: price})
+
+    if ((variations.length && !selectedVariations.length) || (variations.length !== selectedVariations.length)) {
+      setVariationError(true);
+      return;
+    }
+
+    setVariationError(false);
+
+    cart.addItem({
+      id: productId,
+      name,
+      price,
+      variations: selectedVariations,
+      allowedQuantity: maxOrderQuantity || stock,
+      stock,
+      quantity,
+      image: images[0]
+    });
+
+    const onGoToCart = () => {
+      modal.destroy();
+      router.push('/cart');
+    }
+
+    const modal = Modal.success({
+      title: '',
+      wrapClassName: 'modalInstance',
+      content: (
+        <div>
+          <Space direction="vertical">
+            <h6>Added to cart!</h6>
+            <p>{name}</p>
+            <Button type="primary" onClick={onGoToCart}>Go to cart</Button>
+          </Space>
+        </div>
+      ),
+      maskClosable: true,
+      okButtonProps: {style: {display: 'none'}}
+    });
+
+    setTimeout(() => {
+      modal && modal.destroy();
+    }, 5000);
+  }
+
+  const handleVariationChange = (option, checked, variationName) => {
+    if (checked) {
+      var selectedVariationOptions = [...selectedVariations, {option, variationName}];
+      const nextOptions = productVariationStocks.filter(pvs => {
+        return selectedVariationOptions.every(svo => {
+          //todo: also include non groups variation
+          return pvs.variationGroup.find(vg => vg.name === svo.variationName && vg.value === svo.option);
+        })
+      });
+
+      const nextOptionsFormatted =  makeVariationGroupByIndex(nextOptions, variationGroups.length, selectedVariationOptions.map(svo => svo.option));
+
+      if (nextOptionsFormatted.length) {
+        setVariationGroups(state => ([
+          ...state,
+          nextOptionsFormatted
+        ]));
+      }
+    } else {
+      var selectedVariationOptions = selectedVariations.filter(sv => !(sv.variationName === variationName && sv.option === option));
+      const  nextOptionsFormatted = variationGroups.reduce((nof, vg) => {
+        const filteredGroups = vg.filter(g => !g.parents.includes(option));
+
+        if (filteredGroups.length) nof.push(filteredGroups);
+        return nof;
+      }, []);
+
+      setVariationGroups(nextOptionsFormatted);
+    }
+
+    setSelectedVariations(selectedVariationOptions);
+
+     // nextSelectedTags = checked ? [...nextSelectedTags, {variationId, option, variationName}] : nextSelectedTags.filter(v => v.option !== option);
+    // setSelectedVariations(nextSelectedTags);
+  }
+
+  const onRating = (ratings) => {
+    setReviewValues(r => ({...r, ratings}));
+  }
+
+  const handleReviewChange = (e) => {
+    setReviewValues(r => ({...r, content: e.target.value}));
+  }
+
+  const onSubmit = () => {
+    if (showReviewEditor) var id = showReviewEditor;
+
+    recreateReview({
+      ...reviewValues,
+      productId,
+      id
+    });
+  }
+
+  const makePrice = () => {
+    let minPrice = 0, maxPrice = 0;
+
+    if (productVariationStocks.length) {
+      productVariationStocks.forEach(pvs => {
+        if (pvs.price > maxPrice) maxPrice = pvs.price;
+        if (minPrice === 0 || pvs.price < minPrice) minPrice = pvs.price;
+      });
+
+      return `₹${minPrice} - ₹${maxPrice}`;
+    }
+
+    return `₹${price}`;
+  }
+
+  const makeStock = () => {
+    if (productVariationStocks.length) {
+      return -1;
+    }
+
+    return stock;
+  };
+
+  return(
+    <main style={{ position: 'relative' }}>
+      {
+        isLoading ?
+          <FullPageSpinner /> :
+          <>
+          <ProductInfoSection>
+            <Container $maxWidth="1300px">
+              <Row gutter={{ xs: 8, sm: 24, md: 32, lg: 64 }}>
+                <ProductSlideCol sm={24} md={10} lg={8}>
+                  <Carousel autoplay 
+                    ref={e => slider.current = e}
+                    afterChange={setCurrentSlide}>
+                    {
+                      images.map((image, i) => (
+                        <div key={i}>
+                          <ImageWrapper>
+                            <Image src={image.url} alt={i} layout="fill"/>
+                          </ImageWrapper>
+                        </div>
+                      ))
+                    }
+                  </Carousel>
+                    <ThumbsWrapper>
+                      {
+                        images.length > 1 && images.map((image, i) => (
+                          <Thumb key={i} 
+                            className={currentSlide == i ? 'selected' : ''}
+                            onClick={() => onThumbClick(i)}>
+                            <Image src={image.url} alt={i} layout="fill"/>
+                          </Thumb>
+                        ))
+                      }
+                    </ThumbsWrapper>
+                </ProductSlideCol>
+                <Col sm={24} md={10} lg={16}>
+                  <h3>{name}</h3>
+                  <Price>{makePrice()}</Price>
+                  <Space direction="vertical" size="large">
+                  {
+                    makeStock() > 0 &&
+                    <CTACartWrapper>
+                      <QauntityWrapper>
+                        <QuatityButtons onClick={decrementQuantity}><FontAwesomeIcon icon={faMinus}/></QuatityButtons>
+                        <QuantityInput value={quantity} disabled/>
+                        <QuatityButtons onClick={incrementQuantity}><FontAwesomeIcon icon={faPlus}/></QuatityButtons>
+                      </QauntityWrapper>
+                      <CTACartButton size="large" type="primary" onClick={addToCart}>Add to Cart</CTACartButton>
+                    </CTACartWrapper> 
+                  }
+                    {
+                      makeStock() === 0 &&
+                      <Alert message="Out of stock" type="error" />
+                    }
+                    <div>
+                      {
+                        variationError &&
+                        <p style={{color: 'red'}}><small>Please select options from below</small></p>
+                      }
+                      {variationGroups.reduce((wrappers, vg) => {
+                        const wrapper = vg.map((g, i) => (
+                          <VariationWrapper key={i}>
+                            <h6>{g.name}</h6>
+                              {g.options.map(option => (
+                                <CheckableTag
+                                  key={option.value}
+                                  checked={selectedVariations.some(v => v.option === option.value)}
+                                  onChange={checked => handleVariationChange(option.value, checked, g.name, g.variationGroupId)}
+                                >
+                                  {option.value}
+                                </CheckableTag>
+                              ))}
+                          </VariationWrapper>
+                        ));
+
+                        wrappers.push(wrapper);
+                        return wrappers;
+                      }, [])}
+                    </div>
+                  </Space>
+                  <DropDownContainer>
+                    {
+                      makeCollapsibleContentSections().map((dropdown) => (
+                        <div key={dropdown.id}>
+                          <DropDownTitle orientation="left" 
+                            onClick={() => toggleDropdownById(dropdown.id)}>
+                              <h6><FontAwesomeIcon className='icon' icon={isContentOpen(dropdown.id) ? faMinus: faPlus}/>{dropdown.title}</h6>
+                          </DropDownTitle>
+                          <DropdownContent className={isContentOpen(dropdown.id) ? 'show': ''}>
+                            {
+                              dropdown.id == 'reviews' ?
+                              <>
+                              {
+                                reviews.map(({ replies = [], ...review }, i) => (
+                                  showReviewEditor === review.id ?
+                                  <Space direction="vertical" style={{width: '100%'}}>
+                                    <Rate allowHalf onChange={onRating} value={reviewValues.ratings || 0} defaultValue={0} />
+                                    <ReviewEditor
+                                      onChange={handleReviewChange}
+                                      closeEditor={() => {setReviewValues({}); setShowReviewEditor(null)}}
+                                      onSubmit={onSubmit}
+                                      id={review.id}
+                                      submitting={addingReview}
+                                      value={reviewValues.content || ''}
+                                    />
+                                  </Space> :
+                                  <ReviewContainer key={i} {...review} showReviewEditor={showReviewEditor === review.id} userId={user.id}>
+                                    {replies.length > 0 && 
+                                    <>
+                                      <ReviewList replies={replies} />
+                                      <Comment
+                                        content={
+                                          <ReviewEditor
+                                            // onChange={this.handleChange}
+                                            // onSubmit={this.handleSubmit}
+                                            // submitting={submitting}
+                                            // value={value}
+                                          />
+                                        }
+                                      />
+                                    </>}
+                                  </ReviewContainer>
+                                ))
+                              }
+                              {
+                                user.id && !showReviewEditor &&
+                                <>
+                                  <Space direction="vertical" style={{width: '100%'}}>
+                                    <Rate allowHalf onChange={onRating} value={reviewValues.ratings || 0} defaultValue={0} />
+                                    <ReviewEditor
+                                      onChange={handleReviewChange}
+                                      onSubmit={onSubmit}
+                                      submitting={addingReview}
+                                      value={reviewValues.content || ''}
+                                    />
+                                  </Space>
+                                </>
+                              }
+                              </>
+                              :
+                              <div style={{ fontSize: '14px' }} dangerouslySetInnerHTML={{ __html: dropdown.content }}/>
+                            }
+                          </DropdownContent>
+                        </div>
+                      ))
+                    }
+                  </DropDownContainer>
+                </Col>
+              </Row>
+            </Container>
+          </ProductInfoSection>
+          {/* <ProductListSection>
+            <Container $maxWidth="1300px">
+              <ProductListSlider title="You may also like" products={products}/>
+            </Container>
+          </ProductListSection> */}
+        </>
+      }
+    </main>
+  );
+}
+
+export default ProductPage;
