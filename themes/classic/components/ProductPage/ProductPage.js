@@ -64,15 +64,18 @@ const ProductPage = () => {
   const makeVariationGroupByIndex = useCallback((variationGroup, index, parents=[]) => {
     return variationGroup.reduce((groups, pvs) => {
       if (pvs.variationGroup[index]) {
-        const name = pvs.variationGroup[index].name;
+        const variationGroup = pvs.variationGroup[index];
+        const name = variationGroup.name;
         const nameIndex = groups.findIndex(g => g.name === name);
   
         if (nameIndex < 0) {
-          groups.push({name, parents, options: [pvs.variationGroup[index]]});
+          groups.push({name, parents, options: [variationGroup]});
           return groups;
         }
   
-        groups[nameIndex].options.push(pvs.variationGroup[index]);
+        if (!groups[nameIndex].options.every(o => o.name === name && o.value === variationGroup.value)) {
+          groups[nameIndex].options.push(variationGroup);
+        }
       }
 
       return groups;
@@ -81,7 +84,7 @@ const ProductPage = () => {
 
   useEffect(() => {
     if (productVariationStocks.length) {
-      setVariationGroups([makeVariationGroupByIndex(productVariationStocks, 0)]);
+      setVariationGroups(makeVariationGroupByIndex(productVariationStocks, 0));
     }
   }, [makeVariationGroupByIndex, productVariationStocks]);
 
@@ -275,20 +278,16 @@ const ProductPage = () => {
       const viariationNameIndex = variationGroups.findIndex(vg => vg.name === variationName)
       let nextVariationGroups = variationGroups;
 
-      console.log({viariationNameIndex, n: variationGroups.slice(0, viariationNameIndex + 1)});
-
-      if (viariationNameIndex > 0) {
+      if (viariationNameIndex >= 0) {
         nextVariationGroups = variationGroups.slice(0, viariationNameIndex + 1);
       }
 
       const nextOptionsFormatted =  makeVariationGroupByIndex(nextOptions, nextVariationGroups.length, selectedVariationOptions.map(svo => svo.option));
 
-      if (nextOptionsFormatted.length) {
-        setVariationGroups(state => ([
-          ...state,
-          nextOptionsFormatted
-        ]));
-      }
+      setVariationGroups([
+        ...nextVariationGroups,
+        ...nextOptionsFormatted
+      ]);
     } else {
       var selectedVariationOptions = selectedVariations.filter(sv => {
         if ((sv.variationName === variationName && sv.option === option)) return false;
@@ -297,12 +296,7 @@ const ProductPage = () => {
         return true;
       });
 
-      const  nextOptionsFormatted = variationGroups.reduce((nof, vg) => {
-        const filteredGroups = vg.filter(g => !g.parents.includes(option));
-
-        if (filteredGroups.length) nof.push(filteredGroups);
-        return nof;
-      }, []);
+      const nextOptionsFormatted = variationGroups.filter(g => !g.parents.includes(option));
 
       setVariationGroups(nextOptionsFormatted);
     }
@@ -410,25 +404,19 @@ const ProductPage = () => {
                         variationError &&
                         <p style={{color: 'red'}}><small>Please select options from below</small></p>
                       }
-                      {variationGroups.reduce((wrappers, vg) => {
-                        const wrapper = vg.map((g, i) => (
+                        {variationGroups.map((g, i) => (
                           <VariationWrapper key={i}>
                             <h6>{g.name}</h6>
                               {g.options.map(option => (
                                 <CheckableTag
                                   key={option.value}
                                   checked={selectedVariations.some(v => v.option === option.value)}
-                                  onChange={checked => handleVariationChange(option.value, checked, g.name, g.variationGroupId)}
-                                >
+                                  onChange={checked => handleVariationChange(option.value, checked, g.name, g.variationGroupId)}>
                                   {option.value}
                                 </CheckableTag>
                               ))}
                           </VariationWrapper>
-                        ));
-
-                        wrappers.push(wrapper);
-                        return wrappers;
-                      }, [])}
+                        ))}
                     </div>
                   </Space>
                   <DropDownContainer>
