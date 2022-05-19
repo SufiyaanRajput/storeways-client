@@ -255,7 +255,16 @@ const ProductPage = () => {
 
   const handleVariationChange = (option, checked, variationName) => {
     if (checked) {
-      var selectedVariationOptions = [...selectedVariations, {option, variationName}];
+      const siblingVariation = selectedVariations.find(svo => svo.variationName === variationName);
+      var selectedVariationOptions = selectedVariations.filter(sv => {
+        if ((sv.variationName === variationName)) return false;
+        if (siblingVariation && sv.parents.includes(siblingVariation.option)) return false;
+
+        return true;
+      });
+
+      selectedVariationOptions = [...selectedVariationOptions, {option, variationName, parents: selectedVariations.map(svo => svo.option)}];
+
       const nextOptions = productVariationStocks.filter(pvs => {
         return selectedVariationOptions.every(svo => {
           //todo: also include non groups variation
@@ -263,7 +272,16 @@ const ProductPage = () => {
         })
       });
 
-      const nextOptionsFormatted =  makeVariationGroupByIndex(nextOptions, variationGroups.length, selectedVariationOptions.map(svo => svo.option));
+      const viariationNameIndex = variationGroups.findIndex(vg => vg.name === variationName)
+      let nextVariationGroups = variationGroups;
+
+      console.log({viariationNameIndex, n: variationGroups.slice(0, viariationNameIndex + 1)});
+
+      if (viariationNameIndex > 0) {
+        nextVariationGroups = variationGroups.slice(0, viariationNameIndex + 1);
+      }
+
+      const nextOptionsFormatted =  makeVariationGroupByIndex(nextOptions, nextVariationGroups.length, selectedVariationOptions.map(svo => svo.option));
 
       if (nextOptionsFormatted.length) {
         setVariationGroups(state => ([
@@ -272,7 +290,13 @@ const ProductPage = () => {
         ]));
       }
     } else {
-      var selectedVariationOptions = selectedVariations.filter(sv => !(sv.variationName === variationName && sv.option === option));
+      var selectedVariationOptions = selectedVariations.filter(sv => {
+        if ((sv.variationName === variationName && sv.option === option)) return false;
+        if (sv.parents.includes(option)) return false;
+
+        return true;
+      });
+
       const  nextOptionsFormatted = variationGroups.reduce((nof, vg) => {
         const filteredGroups = vg.filter(g => !g.parents.includes(option));
 
@@ -284,9 +308,6 @@ const ProductPage = () => {
     }
 
     setSelectedVariations(selectedVariationOptions);
-
-     // nextSelectedTags = checked ? [...nextSelectedTags, {variationId, option, variationName}] : nextSelectedTags.filter(v => v.option !== option);
-    // setSelectedVariations(nextSelectedTags);
   }
 
   const onRating = (ratings) => {
