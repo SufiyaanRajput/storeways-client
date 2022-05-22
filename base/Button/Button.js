@@ -24,6 +24,9 @@ const makeBorderWidth = (type) => {
 
 const Button = styled(BaseButton)`
   font-size: ${({size}) => size === 'small' ? '13px' : '16px'};
+  height:  ${({size}) => size === 'small' ? '32px' : 'inherit'};
+  height:  ${({size}) => size === 'small' ? '4px 15px' : 'inherit'};
+  min-width: 75px;
   line-height: ${({size}) => size === 'small' ? 1 : 'inherit'};
   background-color: ${({ type, theme }) => makeBgColor(type, theme)};
   color: ${({ type, theme }) => makeColor(type, theme)};
@@ -42,7 +45,8 @@ const Button = styled(BaseButton)`
 Button.defaultProps = {
   theme: {
     brandColor: 'black'
-  }
+  },
+  size: 'large'
 }
 
 export const ButtonWrapper = styled.div`

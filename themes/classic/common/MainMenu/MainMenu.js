@@ -2,9 +2,11 @@ import { faSearch, faShoppingCart, faUser, faBars } from '@fortawesome/free-soli
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Drawer, Dropdown, Menu } from "antd";
 import storeContext from '../../../../store/store';
+import userContext from '../../../../store/users';
 import { observer } from 'mobx-react-lite';
 import { useContext, useState } from "react";
 import { imageKitLoader } from 'themes/utils';
+import LoginModal from './LoginModal';
 import Link from 'next/link';
 import { 
   NavContainer, 
@@ -23,17 +25,26 @@ import { useRouter } from 'next/router';
 
 const MainMenu = observer(() => {
   const [isMobileMenuVisible, setMobileMenuVisibility] = useState(false);
+  const [showLoginModal, setLoginModalVisibility] = useState(false);
   const store = useContext(storeContext);
+  const user = useContext(userContext);
   const router = useRouter();
+
   const { logoText } = store?.settings?.theme || {};
   const {logo} = store || {};
 
   const menu = (
     <Menu>
       <Menu.Item key="0">
-        <Link href="/orders">
-          <a>Orders</a>
-        </Link> 
+        {
+          user.id ?
+          <Link href="/orders">
+            <a>Orders</a>
+          </Link> :
+          <p href="" onClick={() => setLoginModalVisibility(true)}>
+            <a>Login</a>
+          </p> 
+        }
       </Menu.Item>
     </Menu>
   );
@@ -74,6 +85,7 @@ const MainMenu = observer(() => {
       >
         <NavLinkContainer />
       </Drawer>
+      <LoginModal visible={showLoginModal} user={user} setVisibility={setLoginModalVisibility}/>
       <NavContainer>
         <Container $maxWidth="1300px">
           <PrimaryNavWrapper>

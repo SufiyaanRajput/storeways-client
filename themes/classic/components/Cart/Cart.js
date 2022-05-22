@@ -10,6 +10,7 @@ import { useRouter } from "next/router";
 import { Select, RemoveButton, PriceSpan, Space, CheckoutButton, CostCol, ProductsCol, SummaryCol, MainRow, ProductImageCol, ItemActionsRow, CenterText } from "./styles";
 import { useAsyncFetch } from "themes/utils/hooks.js";
 import { getProductsByIds } from "./api/index.js";
+import { getVariationGroupBySelection } from '../../../utils';
 
 const ItemActions = ({mobile, price, stock, quantity, onQuantityChange, removeItem}) => (
   <ItemActionsRow gutter={15} mobile={mobile}>
@@ -50,9 +51,18 @@ const Cart = observer(() => {
       let hasError = false;
       const updatedProducts = cart.items.map(item => {
         const updatedProduct = productsResponse.data.products.find(product => Number(product.id) === Number(item.id));
+        if (item.variations && item.variations.length) {
+          var variationGroup = getVariationGroupBySelection(updatedProduct.productVariationStocks, item.variations);
+        }
 
-        if (updatedProduct.stock < item.quantity) {
-          if (updatedProduct.stock === 0) {
+        let updatedStock = updatedProduct.stock;
+
+        if (variationGroup[0]) {
+          updatedStock = Number(variationGroup[0].stock) || updatedStock;
+        }
+
+        if (updatedStock < item.quantity) {
+          if (updatedStock === 0) {
             setProductError(errors => ({...errors, [item.id]: 'Out of stock'}));
           } else {
             setProductError(errors => ({...errors, [item.id]: 'Stock updated since you last added in your cart. Please change quantity.'}));
@@ -60,17 +70,23 @@ const Cart = observer(() => {
           
           hasError = true;
         }
-        return {
+        
+        const productToSet = {
+          ...updatedProduct,
           ...item,
-          ...updatedProduct
         }
+
+        delete productToSet.productVariationStocks;
+        delete productToSet.productVariationStocks;
+
+        return productToSet;
       });
 
       cart.setItems({items: updatedProducts});
 
       if (!hasError) {
-      cart.setTotalAmount(makeTotal());
-      router.push('/checkout');
+        cart.setTotalAmount(makeTotal());
+        router.push('/checkout');
       }
     }
   }, [cart, fetchProductsSuccess, makeTotal, productsResponse.data, router]);

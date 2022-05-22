@@ -30,6 +30,7 @@ import {
   ProductInfoSection,
   VariationWrapper
  } from "./styles";
+ import { getVariationGroupBySelection } from '../../../utils';
 import { createReview, fetchReviews } from "./api";
 
 const ReviewList = ({ replies }) => (
@@ -53,6 +54,9 @@ const ProductPage = () => {
   const [openContent, setOpenContent] = useState([]);
   const [selectedVariations, setSelectedVariations] = useState([]);
   const [variationGroups, setVariationGroups] = useState([]);
+  const [variationGroupPrice, setVariationGroupPrice] = useState(null);
+  const [variationGroupMaxOrderQuantity, setVariationGroupMaxOrderQuantity] = useState(null);
+  const [variationGroupStock, setVariationGroupStock] = useState(null);
   const slider = useRef();
   const router = useRouter();
   const { productId } = router.query;
@@ -201,7 +205,7 @@ const ProductPage = () => {
   }
 
   const incrementQuantity = () => {
-    const allowedQuantity = maxOrderQuantity || stock;
+    const allowedQuantity = (productVariationStocks.length ? (variationGroupMaxOrderQuantity || variationGroupStock) : maxOrderQuantity) || stock;
     setQuantity(q => q === allowedQuantity ? q : q + 1);
   }
 
@@ -212,20 +216,24 @@ const ProductPage = () => {
   const addToCart = () => {
     createGAEvent({action: 'AddToCart', category: 'add_to_cart', label: name, value: price})
 
-    if ((variations.length && !selectedVariations.length) || (variations.length !== selectedVariations.length)) {
+    const variationGroup = getVariationGroupBySelection(productVariationStocks, selectedVariations)?.[0];
+
+    if ((productVariationStocks.length && (!selectedVariations.length || !variationGroup)) || (variationGroup.variationGroup.length !== selectedVariations.length)) {
       setVariationError(true);
       return;
     }
 
     setVariationError(false);
 
+    const hasVaritionGroup = productVariationStocks.length;
+
     cart.addItem({
       id: productId,
       name,
-      price,
+      price: hasVaritionGroup ? variationGroupPrice : price,
       variations: selectedVariations,
-      allowedQuantity: maxOrderQuantity || stock,
-      stock,
+      allowedQuantity: (hasVaritionGroup ? (variationGroupMaxOrderQuantity || variationGroupStock) : maxOrderQuantity) || stock,
+      stock: hasVaritionGroup ? variationGroupStock : stock,
       quantity,
       image: images[0]
     });
@@ -257,6 +265,8 @@ const ProductPage = () => {
   }
 
   const handleVariationChange = (option, checked, variationName) => {
+    setQuantity(1);
+
     if (checked) {
       const siblingVariation = selectedVariations.find(svo => svo.variationName === variationName);
       var selectedVariationOptions = selectedVariations.filter(sv => {
@@ -268,12 +278,7 @@ const ProductPage = () => {
 
       selectedVariationOptions = [...selectedVariationOptions, {option, variationName, parents: selectedVariations.map(svo => svo.option)}];
 
-      const nextOptions = productVariationStocks.filter(pvs => {
-        return selectedVariationOptions.every(svo => {
-          //todo: also include non groups variation
-          return pvs.variationGroup.find(vg => vg.name === svo.variationName && vg.value === svo.option);
-        })
-      });
+      var nextOptions = getVariationGroupBySelection(productVariationStocks, selectedVariationOptions);
 
       const viariationNameIndex = variationGroups.findIndex(vg => vg.name === variationName)
       let nextVariationGroups = variationGroups;
@@ -296,9 +301,22 @@ const ProductPage = () => {
         return true;
       });
 
+      var nextOptions = getVariationGroupBySelection(productVariationStocks, selectedVariationOptions);
       const nextOptionsFormatted = variationGroups.filter(g => !g.parents.includes(option));
 
       setVariationGroups(nextOptionsFormatted);
+    }
+
+    if (nextOptions.length === 1 && selectedVariationOptions.length === nextOptions[0].variationGroup.length) {
+      const { price: variationPrice, maxOrderQuantity, stock: variationStock } = nextOptions[0] || {};
+
+      setVariationGroupPrice(Number(variationPrice) || Number(price));
+      setVariationGroupMaxOrderQuantity(Number(maxOrderQuantity));
+      setVariationGroupStock(Number(variationStock) || Number(stock));
+    } else {
+      setVariationGroupPrice(null);
+      setVariationGroupMaxOrderQuantity(null);
+      setVariationGroupStock(null);
     }
 
     setSelectedVariations(selectedVariationOptions);
@@ -323,13 +341,17 @@ const ProductPage = () => {
   }
 
   const makePrice = () => {
-    let minPrice = 0, maxPrice = 0;
+    if (variationGroupPrice) return `₹${variationGroupPrice}`;
+
+    let minPrice = price, maxPrice = price;
 
     if (productVariationStocks.length) {
       productVariationStocks.forEach(pvs => {
         if (pvs.price > maxPrice) maxPrice = pvs.price;
-        if (minPrice === 0 || pvs.price < minPrice) minPrice = pvs.price;
+        if (pvs.price > 0 && pvs.price < minPrice) minPrice = pvs.price;
       });
+
+      if (minPrice === maxPrice) return `₹${price}`;
 
       return `₹${minPrice} - ₹${maxPrice}`;
     }
@@ -339,7 +361,7 @@ const ProductPage = () => {
 
   const makeStock = () => {
     if (productVariationStocks.length) {
-      return -1;
+      return variationGroupStock !== null ? variationGroupStock : -1;
     }
 
     return stock;

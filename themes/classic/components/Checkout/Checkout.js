@@ -200,9 +200,9 @@ const Checkout = () => {
     const {mobile, shippingAddress, ...values} = form.getFieldsValue();
 
     recreateOrder({
-      accountId, 
-      amount: cart.totalAmount * 100, 
       ...values, 
+      accountId, 
+      amount: cart.totalAmount, 
       address: shippingAddress, 
       mobile: `+91${mobile}`,
       products: cart.items,

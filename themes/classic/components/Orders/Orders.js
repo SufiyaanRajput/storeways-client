@@ -86,7 +86,7 @@ const Orders = () => {
       key: 'x',
       render: (text, record) => {
         if (record.status === 'Cancelled') return <p className="danger">Cancelled</p>;
-        return(<Button loading={cancellingId === record.id} onClick={() => onCancelOrder(record)} danger>Cancel</Button>);
+        return(<Button loading={cancellingId === record.id && cancellingOrders} onClick={() => onCancelOrder(record)} danger>Cancel</Button>);
       },
     },
   ];
