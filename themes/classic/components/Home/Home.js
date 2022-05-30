@@ -28,6 +28,7 @@ import {
   Posters,
 } from './styles';
 import Image from 'next/image';
+import { toJS } from 'mobx';
 
 const HomeComponent = observer(() => {
   const store = useContext(storeContext);

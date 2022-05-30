@@ -13,7 +13,6 @@ export const Category = styled.p`
 
 export const RemoveButton = styled(Button)`
   color: #6c6c6c;
-  line-height: 1;
   font-size: 13px
 `;
 

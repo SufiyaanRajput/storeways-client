@@ -1,19 +1,12 @@
 import { Section, Container } from "@/base/index";
 import { SectionTitle } from "@/base/Section/Section";
-import { Table, Button, Modal } from "antd";
+import { Table, Button, Modal, notification, Tag } from "antd";
 import { useEffect, useState } from "react";
 import { useAsyncFetch } from "themes/utils/hooks";
 import { cancelOrders, fetchOrders } from "./api";
 
-const Orders = () => {
+const ProductTable = ({ record, refetchOrders }) => {
   const [cancellingId, setCancellingId] = useState(null);
-
-  const {
-    isLoading: fetchingOrders,
-    success: fetchingOrdersSuccess,
-    response: fetchOrdersResponse,
-    refetch: refetchOrders
-  } = useAsyncFetch(true, fetchOrders);
 
   const {
     isLoading: cancellingOrders,
@@ -34,49 +27,28 @@ const Orders = () => {
       okText: 'Yes',
       okType: 'danger',
       cancelText: 'No',
+      okButtonProps: {loading: cancellingOrders},
       onOk() {
         setCancellingId(record.id);
-        recancelOrders({ids: [record.id], products: [{quantity: record.quantity, id: record.productId}]});
+        recancelOrders({referenceIds: [record.referenceId], products: [{quantity: record.quantity, id: record.productId}]});
       },
       onCancel() {},
     });
   }
 
   const columns = [
+    { title: 'Product', dataIndex: 'product', key: 'product' },
+    { title: 'Price', dataIndex: 'price', key: 'price' },
+    { title: 'Reference ID', dataIndex: 'referenceId', key: 'referenceId' },
+    { title: 'Quantity', dataIndex: 'quantity', key: 'quantity' },
     {
-      title: 'Reference ID',
-      dataIndex: 'referenceId',
-      key: 'referenceId',
-      width: 170,
-    },
-    {
-      title: 'Product',
-      dataIndex: 'product',
-      key: 'product',
-    },
-    {
-      title: 'Quantity',
-      dataIndex: 'quantity',
-      key: 'quantity',
-      width: 150,
-    },
-    {
-      title: 'Amount',
-      dataIndex: 'amount',
-      key: 'amount',
-      width: 150,
-      render: (text, record) => {
-        return(<p>₹{text}</p>);
-      },
-    },
-    {
-      title: 'Order date',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      width: 150,
-      render: (text, record) => {
-        return new Date(record.createdAt).toLocaleDateString();
-      },
+      title: 'Variations',
+      key: 'variations',
+      render: (text, record) => (
+        record.variations.map((variant, i) => (
+          <Tag key={i}>{variant.variationName}: {variant.option}</Tag>
+        ))
+      ),
     },
     {
       title: 'Action',
@@ -90,10 +62,67 @@ const Orders = () => {
       },
     },
   ];
+  
+  return <Table columns={columns} dataSource={record} pagination={false} />;
+};
+
+const Orders = () => {
+  const {
+    isLoading: fetchingOrders,
+    success: fetchingOrdersSuccess,
+    error: fetchOrdersError,
+    response: fetchOrdersResponse,
+    refetch: refetchOrders
+  } = useAsyncFetch(true, fetchOrders);
+
+  useEffect(() => {
+    if (fetchOrdersError) {
+      notification.error({
+        message: `Something went wrong!`,
+        placement: 'bottomRight'
+      })
+    }
+  }, [fetchOrdersError]);
+
+  const columns = [
+    {
+      title: 'Cart reference ID',
+      dataIndex: 'cartReferenceId',
+      key: 'cartReferenceId',
+      width: 170,
+    },
+    {
+      title: 'Amount',
+      dataIndex: 'amount',
+      key: 'amount',
+      width: 150,
+      render: (text, record) => {
+        return(<p>₹{text}</p>);
+      },
+    },
+    {
+      title: 'Total items',
+      dataIndex: 'totalItems',
+      key: 'totalItems',
+      width: 150,
+      render: (text, record) => {
+        return(<p>{record.items.length}</p>);
+      },
+    },
+    {
+      title: 'Order date',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      width: 150,
+      render: (text, record) => {
+        return new Date(record.createdAt).toLocaleDateString();
+      },
+    },
+  ];
 
   const makeOrders = () => {
     if (fetchingOrdersSuccess) {
-      return fetchOrdersResponse.data.orders;
+      return fetchOrdersResponse.data.orders.map(o => ({...o, key: o.id}));
     }
 
     return [];
@@ -104,7 +133,9 @@ const Orders = () => {
       <Section>
         <Container $maxWidth="1300px">
           <SectionTitle orientation="left"><h4>Your orders</h4></SectionTitle>
-          <Table dataSource={makeOrders()} scroll={{ x: 1100 }} columns={columns} loading={fetchingOrders} />
+          <Table dataSource={makeOrders()} rowKey="cartReferenceId" scroll={{ x: 1100 }} columns={columns} loading={fetchingOrders} expandable={{
+            expandedRowRender: (record) => <ProductTable record={record.items} refetchOrders={refetchOrders}/>
+          }}/>
         </Container>
       </Section>
     </main>

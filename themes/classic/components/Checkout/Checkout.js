@@ -13,6 +13,7 @@ import {useAsyncFetch} from 'themes/utils/hooks';
 import {createOrder, confirmPayment} from './api';
 import { cancelOrders } from "../Orders/api";
 import Head from "next/head";
+import { observer } from "mobx-react-lite";
 import { toJS } from "mobx";
 
 const Checkout = () => {
@@ -24,6 +25,7 @@ const Checkout = () => {
   const checkout = useContext(checkoutStore);
   const router = useRouter();
   const [isOTPModelVisible, setOTPModelVisible] = useState(false);
+  const hasPaymentGateway = !!store.settings?.apps?.razorpay?.active;
 
   const {
     isLoading: creatingOrder,
@@ -50,7 +52,8 @@ const Checkout = () => {
       const {address, mobile, ...rest} = toJS(user); 
       form.setFieldsValue({...rest, mobile: mobile ? mobile.substring(3,) : '', shippingAddress: address});
     }
-  }, [form, user]);
+    form.setFieldsValue({paymentMode: hasPaymentGateway ? 'online' : 'cod'});
+  }, [form, user, hasPaymentGateway]);
 
   useEffect(() => {
     if (confirmingPaymentSuccess) {
@@ -269,7 +272,6 @@ const Checkout = () => {
             onFinish={verifyOTP}
             validateTrigger="onBlur"
             // onValuesChange={onValuesChange}
-            initialValues={{paymentMode: 'online'}}
             autoComplete="off"
           >
             <Row gutter={16}>
@@ -342,7 +344,10 @@ const Checkout = () => {
                       rules={[{ required: true, message: `Please select payment mode!` }]}
                     >
                       <Radio.Group>
-                        <Radio value="online">Online</Radio>
+                        {
+                          hasPaymentGateway &&
+                          <Radio value="online">Online</Radio>
+                        }
                         <Radio value="cod">Cash on delivery</Radio>
                       </Radio.Group>  
                     </Form.Item>
@@ -382,4 +387,4 @@ const Checkout = () => {
   );
 }
 
-export default Checkout;
+export default observer(Checkout);

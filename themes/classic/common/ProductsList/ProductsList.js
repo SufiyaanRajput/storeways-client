@@ -13,7 +13,7 @@ export const ProductCardContainer = ({ product, className='' }) => {
       </ProductImage>
       <ProductMeta>
         <ProductName>{product.name}</ProductName>
-        <p>{product.price}</p>
+        <p>₹{product.price}</p>
       </ProductMeta>
     </Wrapper>
   );

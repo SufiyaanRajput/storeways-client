@@ -38,14 +38,14 @@ class Store {
   }
 
   clearStore(){
-    id=null;
-    activeTheme=null;
-    name=null;
-    logo=null;
-    settings=null;
-    subDomain=null;
-    termsOfService=null;
-    privacyPolicy=null;
+    this.id=null;
+    this.activeTheme=null;
+    this.name=null;
+    this.logo=null;
+    this.settings=null;
+    this.subDomain=null;
+    this.termsOfService=null;
+    this.privacyPolicy=null;
   }
 }
 
