@@ -12,6 +12,7 @@ export const NavContainer = styled.nav`
   }
   background-color: ${({theme}) => theme.navBackgroundColor};
   button{
+    min-width: auto;
     color: ${({theme}) => theme.navTextColor};
   }
 `;

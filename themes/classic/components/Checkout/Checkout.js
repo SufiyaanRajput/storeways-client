@@ -86,7 +86,7 @@ const Checkout = () => {
   }, [confirmingPaymentError]);
 
   useEffect(() => {
-    if (createOrderSuccess) {
+    if (createOrderSuccess && cart.items.length) {
       setOTPModelVisible(false);
       const {paymentOrder, orderIds, amount, user: customer, outStock, stockChanged, itemRemoved, paymentMode} = createOrderResponse.data;
 
@@ -112,9 +112,7 @@ const Checkout = () => {
         });
       } else {
         checkout.setOrder(paymentOrder);
-        if (!user.id) {
-          user.setUser(customer);
-        }
+        user.setUser(customer);
 
         otpForm.resetFields();
 
@@ -164,9 +162,9 @@ const Checkout = () => {
         }
       }
     }
-  }, [checkout, user, createOrderResponse.data, createOrderSuccess, form, store.name, store, otpForm, cart.items, reconfirmPayment, router, cart]);
+  }, [checkout, user, createOrderResponse.data, createOrderSuccess, form, store.name, store, otpForm, reconfirmPayment, router, cart]);
 
-  if (!cart.items.length) {
+  if (!confirmingPaymentSuccess && !createOrderSuccess && !cart.items.length) {
     router.push('/cart');
     return null;
   };
@@ -373,7 +371,7 @@ const Checkout = () => {
             <Form.Item wrapperCol={{ span: 24 }}>
               <Row gutter={16} justify="end">
                 <Col>
-                  <Button type="primary" size="large" htmlType="submit" loading={creatingOrder}>
+                  <Button type="primary" size="large" htmlType="submit" loading={creatingOrder || confirmingPayment}>
                     Submit
                   </Button>
                 </Col>

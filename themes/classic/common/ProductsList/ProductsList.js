@@ -1,5 +1,7 @@
 import Image from "next/image";
 import { Row } from "antd";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faStar } from "@fortawesome/free-solid-svg-icons";
 import { useRouter } from 'next/router'
 import { ProductCard, ProductImage, ProductMeta, ProductName, Wrapper } from "./styles";
 
@@ -13,6 +15,9 @@ export const ProductCardContainer = ({ product, className='' }) => {
       </ProductImage>
       <ProductMeta>
         <ProductName>{product.name}</ProductName>
+        {
+          <><FontAwesomeIcon icon={faStar} color="#F8E71C"/> {product.ratings}</>
+        }
         <p>₹{product.price}</p>
       </ProductMeta>
     </Wrapper>

@@ -9,13 +9,15 @@ import userContext from '../store/users';
 import Spinner from '@/base/Spinner/Spinner';
 import { ThemeProvider } from 'styled-components';
 import { useEffect, useContext } from 'react';
+import { useRouter } from 'next/router'
 import Script from 'next/script'
 
 function MyApp({ Component, pageProps }) {
+  const router = useRouter()
   const store = useContext(storeContext);
   const user = useContext(userContext);
   const {success: fetchStoreSuccess, error, isLoading: fetchingStore, response: storeResponse} = useAsyncFetch(true, fetchStore);
-  const {store: {theme} = {}, apps: {googleAnalytics = {}} = {}} = storeResponse?.data?.store?.settings || {};
+  const {store: {theme = {}} = {}, apps: {googleAnalytics = {}} = {}} = storeResponse?.data?.store?.settings || {};
 
   useEffect(() => {
     if (!user.name) {
@@ -29,6 +31,16 @@ function MyApp({ Component, pageProps }) {
       store.setStore(storeResponse.data.store);
     }
   }, [fetchStoreSuccess, store, storeResponse]);
+
+  console.log(router.pathname)
+
+  if (!fetchingStore) {
+    if (router.pathname === '/site-not-found') {
+      return (
+        <Component />
+      );
+    }
+  }
 
   return(
     <>

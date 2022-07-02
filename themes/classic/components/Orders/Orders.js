@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useAsyncFetch } from "themes/utils/hooks";
 import { cancelOrders, fetchOrders } from "./api";
 
-const ProductTable = ({ record, refetchOrders }) => {
+const ProductTable = ({ record, refetchOrders, deliveryStatuses }) => {
   const [cancellingId, setCancellingId] = useState(null);
 
   const {
@@ -38,8 +38,18 @@ const ProductTable = ({ record, refetchOrders }) => {
 
   const columns = [
     { title: 'Product', dataIndex: 'product', key: 'product' },
-    { title: 'Price', dataIndex: 'price', key: 'price' },
     { title: 'Reference ID', dataIndex: 'referenceId', key: 'referenceId' },
+    {
+      title: 'Delivery status',
+      dataIndex: 'deliveryStatus',
+      width: 300,
+      key: 'deliveryStatus',
+      render: (text, record) => {
+        if (record.status === 'Cancelled') return 'N.A.';
+
+        return (deliveryStatuses.find(status => Number(status.value) === Number(text)) || {}).label
+      },
+    },
     { title: 'Quantity', dataIndex: 'quantity', key: 'quantity' },
     {
       title: 'Variations',
@@ -122,7 +132,7 @@ const Orders = () => {
 
   const makeOrders = () => {
     if (fetchingOrdersSuccess) {
-      return fetchOrdersResponse.data.orders.map(o => ({...o, key: o.id}));
+      return fetchOrdersResponse.data.orders.orders.map(o => ({...o, key: o.id}));
     }
 
     return [];
@@ -134,7 +144,10 @@ const Orders = () => {
         <Container $maxWidth="1300px">
           <SectionTitle orientation="left"><h4>Your orders</h4></SectionTitle>
           <Table dataSource={makeOrders()} rowKey="cartReferenceId" scroll={{ x: 1100 }} columns={columns} loading={fetchingOrders} expandable={{
-            expandedRowRender: (record) => <ProductTable record={record.items} refetchOrders={refetchOrders}/>
+            expandedRowRender: (record) => <ProductTable 
+              record={record.items} 
+              refetchOrders={refetchOrders} 
+              deliveryStatuses={fetchOrdersResponse.data.orders.deliveryStatuses}/>
           }}/>
         </Container>
       </Section>

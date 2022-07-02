@@ -66,7 +66,7 @@ const MainMenu = observer(() => {
           <a>Blog</a>
         </Link></NavLink> */}
       <NavLink onClick={() => setMobileMenuVisibility(false)}>
-        <Link href="/">
+        <Link href="/contact">
           <a>Contact</a>
         </Link>
       </NavLink>

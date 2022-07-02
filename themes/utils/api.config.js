@@ -1,4 +1,5 @@
 import axios from 'axios';
+import Router from 'next/router'
 
 export const endpointBaseUrl = process.env.REACT_APP_ENDPOINT_BASE_URL || 'http://www.localhost:8080';
 
@@ -15,15 +16,29 @@ privateInstance.interceptors.request.use((config) => {
 privateInstance.interceptors.response.use(function (response) {
   return response;
 }, function (error) {
+  if (error.response.status === 400 && error.response.data.errorCode === 1000) {
+    window.location = '/404';
+  }
+
   if (error.response.status === 401) {
     localStorage.removeItem('auth-token');
     localStorage.removeItem('user');
     window.location = '/login';
-  } else {
-      return Promise.reject(error);
   }
+
+  return Promise.reject(error);
 });
 
 export const publicInstance = axios.create({
   baseURL: endpointBaseUrl
+});
+
+publicInstance.interceptors.response.use(function (response) {
+  return response;
+}, function (error) {
+  if (error.response.status === 400 && error.response.data.errorCode === 1000) {
+    Router.push('/site-not-found');
+  }
+
+  return Promise.reject(error);
 });
