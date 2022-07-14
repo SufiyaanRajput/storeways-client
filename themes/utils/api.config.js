@@ -1,7 +1,7 @@
 import axios from 'axios';
 import Router from 'next/router'
 
-export const endpointBaseUrl = process.env.REACT_APP_ENDPOINT_BASE_URL || 'http://www.localhost:8080';
+export const endpointBaseUrl = process.env.NEXT_PUBLIC_ENDPOINT_BASE_URL || 'http://www.localhost:8080';
 
 export const privateInstance = axios.create({
   baseURL: endpointBaseUrl
