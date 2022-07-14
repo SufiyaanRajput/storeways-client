@@ -15,6 +15,7 @@ import { cancelOrders } from "../Orders/api";
 import Head from "next/head";
 import { observer } from "mobx-react-lite";
 import { toJS } from "mobx";
+import { sendOTP } from "themes/api";
 
 const Checkout = () => {
   const [form] = useForm();
@@ -46,6 +47,13 @@ const Checkout = () => {
   const {
     refetch: recancelOrders
   } = useAsyncFetch(false, cancelOrders);
+
+  const {
+    isLoading: isSendingOTP,
+    error: sendOTPError,
+    success: sendOTPSuccess,
+    refetch: resendOTP,
+  } = useAsyncFetch(false, sendOTP);
 
   useEffect(() => {
     if (toJS(user)) {
@@ -164,6 +172,12 @@ const Checkout = () => {
     }
   }, [checkout, user, createOrderResponse.data, createOrderSuccess, form, store.name, store, otpForm, reconfirmPayment, router, cart]);
 
+  useEffect(() => {
+    if (sendOTPSuccess || sendOTPError) {
+      setOTPModelVisible(true);
+    }
+  }, [sendOTPSuccess, sendOTPError]);
+
   if (!confirmingPaymentSuccess && !createOrderSuccess && !cart.items.length) {
     router.push('/cart');
     return null;
@@ -193,9 +207,9 @@ const Checkout = () => {
   }];
 
   const verifyOTP = () => {
-    // const otp = otpForm.getFieldValue('otp');
+    const otp = otpForm.getFieldValue('otp');
 
-    // if (!otp) return otpForm.validateFields();
+    if (!otp) return otpForm.validateFields();
 
     const {accountId} = store.settings.apps.razorpay;
     const {mobile, shippingAddress, ...values} = form.getFieldsValue();
@@ -203,11 +217,16 @@ const Checkout = () => {
     recreateOrder({
       ...values, 
       accountId, 
+      otp,
       amount: cart.totalAmount, 
       address: shippingAddress, 
       mobile: `+91${mobile}`,
       products: cart.items,
     });
+  }
+
+  const openOTPMOdal = () => {
+    resendOTP({mobile: `+91${form.getFieldValue('mobile')}`});
   }
   
   return (
@@ -219,10 +238,13 @@ const Checkout = () => {
       <Modal
         visible={isOTPModelVisible}
         closable={true}
-        onCancel={() => setOTPModelVisible(false)}
+        onCancel={() => {
+          setOTPModelVisible(false);
+          otpForm.resetFields();
+        }}
         title="Please enter 6 digits OTP sent to your mobile"
         footer={[
-          <Button key="submit" type="primary" size="large" loading={creatingOrder} onClick={verifyOTP}>
+          <Button key="submit" type="primary" size="large" loading={creatingOrder || confirmingPayment} onClick={verifyOTP}>
             Verify
           </Button>
         ]}
@@ -231,32 +253,39 @@ const Checkout = () => {
           {
             createOrderError &&
             <Alert
-              description="Something went wrong! Please try again later."
+              description={createOrderError?.response?.data?.message || 'Something went wrong! Please try again later.'}
               type="error"
               showIcon
             />
           }
-        <Form
-            form={otpForm}
-            name="login"
-            layout="vertical"
-            wrapperCol={{ span: 24 }}
-            // onFinish={onSubmit}
-            validateTrigger="onBlur"
-            // onValuesChange={onValuesChange}
-            autoComplete="off"
-          >
-            <Form.Item
-              label="OTP"
-              name="otp"
-              rules={[{required: true, message: 'Please enter OTP!'}, {
-                pattern: '^[0-9]{6}$',
-                message: `Doesn't seem like an OTP!`
-              }]}
-            >
-            <Input />
-          </Form.Item>
-        </Form>
+        {
+          sendOTPError ?
+          <Alert
+            description={sendOTPError?.response?.data?.message || 'Something went wrong!'}
+            type="error"
+            showIcon
+          /> :
+          <Form
+              form={otpForm}
+              name="login"
+              layout="vertical"
+              wrapperCol={{ span: 24 }}
+              // onFinish={onSubmit}
+              validateTrigger="onBlur"
+              // onValuesChange={onValuesChange}
+              autoComplete="off">
+              <Form.Item
+                label="OTP"
+                name="otp"
+                rules={[{required: true, message: 'Please enter OTP!'}, {
+                  pattern: '^[0-9]{6}$',
+                  message: `Doesn't seem like an OTP!`
+                }]}
+              >
+              <Input />
+            </Form.Item>
+          </Form> 
+        }
         </Space>
       </Modal>
       <Section>
@@ -267,7 +296,7 @@ const Checkout = () => {
             name="basic"
             layout="vertical"
             wrapperCol={{ span: 24 }}
-            onFinish={verifyOTP}
+            onFinish={openOTPMOdal}
             validateTrigger="onBlur"
             // onValuesChange={onValuesChange}
             autoComplete="off"
@@ -371,7 +400,7 @@ const Checkout = () => {
             <Form.Item wrapperCol={{ span: 24 }}>
               <Row gutter={16} justify="end">
                 <Col>
-                  <Button type="primary" size="large" htmlType="submit" loading={creatingOrder || confirmingPayment}>
+                  <Button type="primary" size="large" htmlType="submit" loading={isSendingOTP}>
                     Submit
                   </Button>
                 </Col>

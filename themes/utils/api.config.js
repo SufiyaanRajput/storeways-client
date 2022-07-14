@@ -23,7 +23,7 @@ privateInstance.interceptors.response.use(function (response) {
   if (error.response.status === 401) {
     localStorage.removeItem('auth-token');
     localStorage.removeItem('user');
-    window.location = '/login';
+    window.location = '/';
   }
 
   return Promise.reject(error);
