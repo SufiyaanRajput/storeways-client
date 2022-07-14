@@ -1,6 +1,5 @@
 import 'antd/dist/antd.css';
 import 'react-multi-carousel/lib/styles.css';
-import '../styles/global.css';
 import ClassicApp from 'themes/classic/app';
 import { fetchStore } from 'themes/api';
 import { useAsyncFetch } from 'themes/utils/hooks';
@@ -11,6 +10,7 @@ import { ThemeProvider } from 'styled-components';
 import { useEffect, useContext } from 'react';
 import { useRouter } from 'next/router'
 import Script from 'next/script'
+import '../styles/global.css';
 
 function MyApp({ Component, pageProps }) {
   const router = useRouter()
